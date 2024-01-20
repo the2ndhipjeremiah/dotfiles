@@ -1,9 +1,4 @@
 get rid of weird vertical gutters in lsp stuff.
-lsp keybinds and jdtls keybinds, a way to toggle jdtls keybinds on java files only???
-    get refs, make sure decl works? Those weird broke links??
-
-Auto complete... need to get that working.
-need to have this work for multiple langs.
-probably dont want for regular text, just code.
 
 Setup for C?
+    Clang settings etc want 4 space tabs.
