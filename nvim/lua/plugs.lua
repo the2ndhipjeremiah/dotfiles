@@ -82,7 +82,7 @@ cmp.setup({
         { name = 'nvim_lsp' },
         { name = 'luasnip' }, -- For luasnip users.
     }, {
-  --      { name = 'buffer' },
+        { name = 'buffer' },
     })
 })
 
@@ -120,6 +120,9 @@ require 'lspconfig'.clangd.setup {
 require 'lspconfig'.lua_ls.setup {
     capabilities = capabilities
 }
-require 'lspconfig'['jdtls'].setup {
+require 'lspconfig'.jdtls.setup {
+    capabilities = capabilities
+}
+require 'lspconfig'.ols.setup {
     capabilities = capabilities
 }
