@@ -126,3 +126,6 @@ require 'lspconfig'.jdtls.setup {
 require 'lspconfig'.ols.setup {
     capabilities = capabilities
 }
+require 'lspconfig'.zls.setup {
+    capabilities = capabilities
+}
