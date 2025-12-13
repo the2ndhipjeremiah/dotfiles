@@ -41,3 +41,11 @@ space_norm_map("e", ":Explore<CR>")
 space_norm_map("<leader>", ":b#<CR>")  -- Space + Space → previous buffer (alternate)
 space_norm_map("n", ":bn<CR>")         -- Space + n → next buffer
 space_norm_map("p", ":bp<CR>")         -- Space + p → previous buffer
+
+-- run build.sh for current open file and open res in quickfix
+vim.keymap.set('n', '<leader>b', function()
+    local file = vim.fn.expand('%:p')
+    vim.opt.makeprg = './build.sh ' .. vim.fn.shellescape(file)
+    vim.cmd('make!')
+    vim.cmd('copen')
+end)
