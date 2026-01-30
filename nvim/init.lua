@@ -37,6 +37,10 @@ vim.lsp.config('clangd', {
   filetypes = {'c'},
 })
 
+vim.diagnostic.config({
+  signs = false,
+})
+
 -- Enable for C files
 vim.api.nvim_create_autocmd('FileType', {
   pattern = {'c'},
