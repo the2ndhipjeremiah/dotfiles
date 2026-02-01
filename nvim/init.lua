@@ -136,48 +136,109 @@ vim.keymap.set('n', '<leader>df', function()
   widgets.sidebar(widgets.frames).open()
 end)
 
+local filter_enabled = false
+local hidden_lines = {}
+local ns_id = vim.api.nvim_create_namespace('dap_scopes_highlight')
 
-vim.keymap.set('n', '<leader>ds', function()
-  local widgets = require('dap.ui.widgets')
-  local sidebar = widgets.sidebar(widgets.scopes)
-  sidebar.open()
+local function highlight_scopes(bufnr)
+  vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
   
-  vim.defer_fn(function()
-    local sidebar_buf = nil
-    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-      local name = vim.api.nvim_buf_get_name(buf)
-      if name:match('dap%-scopes') or name:match('Scopes') then
-        sidebar_buf = buf
-        break
-      end
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  
+  for i, line in ipairs(lines) do
+    -- Highlight variable names (before colon)
+    local var_name = line:match('^%s+([%w_#]+):')
+    if var_name then
+      local col_start = line:find(var_name, 1, true) - 1
+      vim.api.nvim_buf_add_highlight(bufnr, ns_id, 'Identifier', i - 1, col_start, col_start + #var_name)
     end
     
-    if not sidebar_buf then return end
-    
-    vim.api.nvim_buf_set_option(sidebar_buf, 'modifiable', true)
-    
-    local lines = vim.api.nvim_buf_get_lines(sidebar_buf, 0, -1, false)
-    
-    local start_idx, end_idx
-    for i, line in ipairs(lines) do
-      if line == 'Locals' then
-        start_idx = i
-      elseif start_idx and line:match('^[A-Z]') then  -- next section (starts with capital, no indent)
-        end_idx = i - 1
-        break
-      end
+    -- Highlight section headers
+    if line:match('^[A-Z]') then
+      vim.api.nvim_buf_add_highlight(bufnr, ns_id, 'Title', i - 1, 0, -1)
     end
     
-    if start_idx then
-      end_idx = end_idx or #lines
-      local filtered = {}
-      for i = start_idx, end_idx do
-        table.insert(filtered, lines[i])
+    -- Highlight values (after colon)
+    local colon_pos = line:find(':')
+    if colon_pos then
+      vim.api.nvim_buf_add_highlight(bufnr, ns_id, 'String', i - 1, colon_pos, -1)
+    end
+  end
+end
+
+local function toggle_filter_scopes()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    local name = vim.api.nvim_buf_get_name(buf)
+    if name:match('dap%-scopes') then
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      
+      vim.api.nvim_buf_set_option(buf, 'modifiable', true)
+      
+      if filter_enabled then
+        local args_start, args_end
+        local locals_start, locals_end
+        
+        for i, line in ipairs(lines) do
+          if line == 'Arguments' then
+            args_start = i
+          elseif line == 'Locals' then
+            if args_start and not args_end then
+              args_end = i - 1
+            end
+            locals_start = i
+          elseif line:match('^[A-Z]') then
+            if locals_start and not locals_end then
+              locals_end = i - 1
+              break
+            elseif args_start and not args_end then
+              args_end = i - 1
+            end
+          end
+        end
+        
+        -- Build filtered content with both sections
+        local filtered = {}
+        if args_start then
+          args_end = args_end or (locals_start and locals_start - 1) or #lines
+          for i = args_start, args_end do
+            table.insert(filtered, lines[i])
+          end
+        end
+        
+        if locals_start then
+          locals_end = locals_end or #lines
+          for i = locals_start, locals_end do
+            table.insert(filtered, lines[i])
+          end
+        end
+        
+        if #filtered > 0 then
+          hidden_lines[buf] = lines
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, filtered)
+        end
+      else
+        if hidden_lines[buf] then
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, hidden_lines[buf])
+        end
       end
       
-      vim.api.nvim_buf_set_lines(sidebar_buf, 0, -1, false, filtered)
+      vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+      highlight_scopes(buf)
     end
-    
-    vim.api.nvim_buf_set_option(sidebar_buf, 'modifiable', false)
-  end, 200)
+  end
+end
+
+vim.keymap.set('n', '<leader>dt', function()
+  filter_enabled = not filter_enabled
+  print("Locals filter:", filter_enabled and "ON" or "OFF")
+  toggle_filter_scopes()
 end)
+
+vim.keymap.set('n', '<leader>ds', function()
+  require('dap.ui.widgets').sidebar(require('dap.ui.widgets').scopes).open()
+end)
+
+local dap = require('dap')
+dap.listeners.after.event_stopped['filter_locals'] = function()
+  vim.defer_fn(toggle_filter_scopes, 40)  -- , ms
+end
